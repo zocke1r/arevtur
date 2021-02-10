@@ -1,44 +1,44 @@
 {
-  "name": "poe-pricer",
-  "version": "4.5.0",
-  "main": "src/main.js",
-  "scripts": {
-    "start": "electron .",
-    "build-dev": "electron-builder . -c.compression=store",
-    "clean-build": "rm -rf dist; electron-builder .",
-    "ship": "git push && build --win -p always"
-  },
-  "author": "mahhov1",
-  "license": "ISC",
-  "dependencies": {
-    "axios": "^0.19.2",
-    "bs-better-stream": "^1.9.5",
-    "electron-updater": "^4.3.1",
-    "env-paths": "^2.2.0",
-    "google-oauth2-x": "^1.1.2",
-    "js-desktop-base": "^3.3.0",
-    "xx-element": "^2.0.2"
-  },
-  "devDependencies": {
-    "electron": "^9.1.0",
-    "electron-builder": "^20.44.4"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mahhov/poe-pricer.git"
-  },
-  "bugs": {
-    "url": "https://github.com/mahhov/poe-pricer/issues"
-  },
-  "homepage": "https://github.com/mahhov/poe-pricer#readme",
-  "description": "",
-  "build": {
-    "asar": false,
-    "artifactName": "${name}-${version}-${os}-${arch}.${ext}",
-    "files": [
-      "resources",
-      "src"
-    ],
-    "icon": "./resources/icons/fa-dollar-sign-solid-256.png"
-  }
+	"name": "poe-pricer",
+	"version": "4.5.1",
+	"main": "src/main.js",
+	"scripts": {
+		"start": "electron .",
+		"build-dev": "electron-builder . -c.compression=store",
+		"clean-build": "rm -rf dist; electron-builder .",
+		"ship": "git push && build --win -p always"
+	},
+	"author": "mahhov1",
+	"license": "ISC",
+	"dependencies": {
+		"axios": "^0.21.1",
+		"bs-better-stream": "^1.9.5",
+		"electron-updater": "^4.3.1",
+		"env-paths": "^2.2.0",
+		"google-oauth2-x": "^1.1.2",
+		"js-desktop-base": "^3.3.0",
+		"xx-element": "^2.0.2"
+	},
+	"devDependencies": {
+		"electron": "^9.1.0",
+		"electron-builder": "^20.44.4"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/zocke1r/arevtur.git"
+	},
+	"bugs": {
+		"url": "https://github.com/mahhov/poe-pricer/issues"
+	},
+	"homepage": "https://github.com/mahhov/poe-pricer#readme",
+	"description": "",
+	"build": {
+		"asar": false,
+		"artifactName": "${name}-${version}-${os}-${arch}.${ext}",
+		"files": [
+			"resources",
+			"src"
+		],
+		"icon": "./resources/icons/fa-dollar-sign-solid-256.png"
+	}
 }
