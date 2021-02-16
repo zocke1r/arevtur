@@ -1,70 +1,68 @@
-const {httpRequest: {get, post}} = require('js-desktop-base');
-const RateLimitedRetryQueue = require('./RateLimitedRetryQueue');
-const ApiConstants = require('./ApiConstants');
-const Stream = require('./Stream');
-const ItemEval = require('../pobApi/ItemEval');
+const {
+	httpRequest: { get, post },
+} = require("js-desktop-base");
+const RateLimitedRetryQueue = require("./RateLimitedRetryQueue");
+const ApiConstants = require("./ApiConstants");
+const Stream = require("./Stream");
+const ItemEval = require("../pobApi/ItemEval");
 
-let parseRateLimitResponseHeader = ({rule, state}) => {
-	let r = rule.split(':');
-	let s = state.split(':');
-	return `${s[0]} of ${r[0]} per ${r[1]} s. Timeout ${s[2]} of ${r[2]}`
+let parseRateLimitResponseHeader = ({ rule, state }) => {
+	let r = rule.split(":");
+	let s = state.split(":");
+	return `${s[0]} of ${r[0]} per ${r[1]} s. Timeout ${s[2]} of ${r[2]}`;
 };
 
 let getRateLimitHeaders = responseHeaders => {
-	let rules = [
-		...responseHeaders['x-rate-limit-account'].split(','),
-		...responseHeaders['x-rate-limit-ip'].split(',')
-	];
-	let states = [
-		...responseHeaders['x-rate-limit-account-state'].split(','),
-		...responseHeaders['x-rate-limit-ip-state'].split(',')
-	];
-	return rules.map((rule, i) => ({rule, state: states[i]}));
+	let rules = [...responseHeaders["x-rate-limit-account"].split(","), ...responseHeaders["x-rate-limit-ip"].split(",")];
+	let states = [...responseHeaders["x-rate-limit-account-state"].split(","), ...responseHeaders["x-rate-limit-ip-state"].split(",")];
+	return rules.map((rule, i) => ({ rule, state: states[i] }));
 };
 
 let rlrGetQueue = new RateLimitedRetryQueue(667 * 1.2, [5000, 15000, 60000]);
 let rlrPostQueue = new RateLimitedRetryQueue(1500 * 1.2, [5000, 15000, 60000]);
 
-let rlrGet = (endpoint, queryParams, headers, stopObj) => rlrGetQueue.add(async () => {
-	if (stopObj.stop)
-		return;
-	let g = await get(endpoint, queryParams, headers);
-	let rateLimitStr = parseRateLimitResponseHeader(getRateLimitHeaders(g.response.headers)[0]);
-	console.log('got, made requests', rateLimitStr);
-	return g;
-});
+let rlrGet = (endpoint, queryParams, headers, stopObj) =>
+	rlrGetQueue.add(async () => {
+		if (stopObj.stop) return;
+		let g = await get(endpoint, queryParams, headers);
+		console.log(endpoint, queryParams);
+		let rateLimitStr = parseRateLimitResponseHeader(getRateLimitHeaders(g.response.headers)[0]);
+		console.log(g.response);
+		console.log("got, made requests", rateLimitStr);
+		return g;
+	});
 
-let rlrPost = (endpoint, query, headers, stopObj) => rlrPostQueue.add(async () => {
-	if (stopObj.stop)
-		return;
-	let p = await post(endpoint, query, headers);
-	let rateLimitStr = parseRateLimitResponseHeader(getRateLimitHeaders(p.response.headers)[0]);
-	console.log('posted, made requests', rateLimitStr);
-	return p;
-});
+let rlrPost = (endpoint, query, headers, stopObj) =>
+	rlrPostQueue.add(async () => {
+		if (stopObj.stop) return;
+		console.log(query);
+		let p = await post(endpoint, query, headers);
+		console.log(endpoint, queryParams);
+		let rateLimitStr = parseRateLimitResponseHeader(getRateLimitHeaders(p.response.headers)[0]);
+		console.log(p.response);
+		console.log("posted, made requests", rateLimitStr);
+		return p;
+	});
 
 let deepCopy = obj => {
-	if (typeof obj !== 'object' || obj === null)
-		return obj;
-	if (Array.isArray(obj))
-		return obj.map(v => deepCopy(v));
-	return Object.fromEntries(Object.entries(obj)
-		.map(([k, v]) => [k, deepCopy(v)]));
+	if (typeof obj !== "object" || obj === null) return obj;
+	if (Array.isArray(obj)) return obj.map(v => deepCopy(v));
+	return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, deepCopy(v)]));
 };
 
 class QueryParams {
 	constructor(clone = {}) {
 		clone = deepCopy(clone);
-		this.league = clone.league || 'Standard';
-		this.sessionId = clone.sessionId || '';
-		this.name = clone.name || '';
-		this.type = clone.type || '';
+		this.league = clone.league || "Standard";
+		this.sessionId = clone.sessionId || "";
+		this.name = clone.name || "";
+		this.type = clone.type || "";
 		this.minValue = clone.minValue || 0;
 		this.maxPrice = clone.maxPrice || 0;
 		this.defenseProperties = clone.defenseProperties || {
-			armour: {min: 0, weight: 0},
-			evasion: {min: 0, weight: 0},
-			energyShield: {min: 0, weight: 0},
+			armour: { min: 0, weight: 0 },
+			evasion: { min: 0, weight: 0 },
+			energyShield: { min: 0, weight: 0 },
 		};
 		this.affixProperties = clone.affixProperties || {
 			prefix: false,
@@ -73,7 +71,7 @@ class QueryParams {
 		this.linked = clone.linked || false;
 		this.uncorrupted = clone.uncorrupted || false;
 		this.nonUnique = clone.nonUnique || false;
-		this.influences = [...clone.influences || []];
+		this.influences = [...(clone.influences || [])];
 		this.uncrafted = clone.uncrafted || false;
 		// {property: weight, ...}
 		this.weights = clone.weights || {};
@@ -88,80 +86,75 @@ class QueryParams {
 	}
 
 	getQuery(overrides = {}) {
-		let overridden = {...this, ...overrides};
+		let overridden = { ...this, ...overrides };
 
 		let weightFilters = Object.entries(overridden.weights).map(([property, weight]) => ({
 			id: property,
-			value: {weight},
+			value: { weight },
 		}));
 		let andFilters = Object.entries(overridden.ands).map(([property, min]) => ({
 			id: property,
-			value: {min},
+			value: { min },
 		}));
 		let notFilters = Object.entries(overridden.nots).map(([property]) => ({
 			id: property,
 		}));
 
-		if (overridden.affixProperties.prefix)
-			andFilters.push({id: 'pseudo.pseudo_number_of_empty_prefix_mods'});
-		if (overridden.affixProperties.suffix)
-			andFilters.push({id: 'pseudo.pseudo_number_of_empty_suffix_mods'});
+		if (overridden.affixProperties.prefix) andFilters.push({ id: "pseudo.pseudo_number_of_empty_prefix_mods" });
+		if (overridden.affixProperties.suffix) andFilters.push({ id: "pseudo.pseudo_number_of_empty_suffix_mods" });
 
 		let typeFilters = {};
-		typeFilters.category = {option: overridden.type};
-		if (overridden.nonUnique)
-			typeFilters.rarity = {option: 'nonunique'};
+		typeFilters.category = { option: overridden.type };
+		if (overridden.nonUnique) typeFilters.rarity = { option: "nonunique" };
 
 		let miscFilters = {};
-		if (overridden.uncorrupted)
-			miscFilters.corrupted = {option: false};
-		if (overridden.uncrafted)
-			miscFilters.crafted = {option: false};
-		overridden.influences
-			.filter(influence => influence)
-			.forEach(influence => miscFilters[`${influence}_item`] = {option: true});
+		if (overridden.uncorrupted) miscFilters.corrupted = { option: false };
+		if (overridden.uncrafted) miscFilters.crafted = { option: false };
+		overridden.influences.filter(influence => influence).forEach(influence => (miscFilters[`${influence}_item`] = { option: true }));
 
 		let sort = weightFilters.length ? overridden.sort : ApiConstants.SORT.price;
 
 		return {
 			query: {
-				status: {option: overridden.online ? 'online' : 'any'},
+				status: { option: overridden.online ? "online" : "any" },
 				term: this.name,
 				stats: [
 					{
-						type: 'weight',
+						type: "weight",
 						filters: weightFilters,
-						value: {min: overridden.minValue},
-					}, {
-						type: 'and',
+						value: { min: overridden.minValue },
+					},
+					{
+						type: "and",
 						filters: andFilters,
-					}, {
-						type: 'not',
+					},
+					{
+						type: "not",
 						filters: notFilters,
 					},
 				],
 				filters: {
-					type_filters: {filters: typeFilters},
+					type_filters: { filters: typeFilters },
 					trade_filters: {
 						filters: {
-							price: {max: overridden.maxPrice}
-						}
+							price: { max: overridden.maxPrice },
+						},
 					},
 					socket_filters: {
 						filters: {
-							links: {min: 6}
+							links: { min: 6 },
 						},
-						disabled: !overridden.linked
+						disabled: !overridden.linked,
 					},
 					armour_filters: {
 						filters: {
-							ar: overridden.defenseProperties.armour.min && {min: overridden.defenseProperties.armour.min},
-							ev: overridden.defenseProperties.evasion.min && {min: overridden.defenseProperties.evasion.min},
-							es: overridden.defenseProperties.energyShield.min && {min: overridden.defenseProperties.energyShield.min},
-						}
+							ar: overridden.defenseProperties.armour.min && { min: overridden.defenseProperties.armour.min },
+							ev: overridden.defenseProperties.evasion.min && { min: overridden.defenseProperties.evasion.min },
+							es: overridden.defenseProperties.energyShield.min && { min: overridden.defenseProperties.energyShield.min },
+						},
 					},
-					misc_filters: {filters: miscFilters},
-				}
+					misc_filters: { filters: miscFilters },
+				},
 			},
 			sort,
 		};
@@ -174,16 +167,15 @@ class QueryParams {
 				[name]: {
 					...this.defenseProperties[name],
 					min,
-				}
-			}
-		}
+				},
+			},
+		};
 	}
 
 	getItemsStream(progressCallback, itemEval = null) {
 		this.stopObj = {};
 		let stream = new Stream();
-		this.writeItemsToStream(stream, progressCallback, itemEval)
-			.then(() => stream.done());
+		this.writeItemsToStream(stream, progressCallback, itemEval).then(() => stream.done());
 		return stream;
 	}
 
@@ -194,13 +186,13 @@ class QueryParams {
 	async writeItemsToStream(stream, progressCallback, itemEval) {
 		let items = await this.queryAndParseItems(this.getQuery(), stream, progressCallback, itemEval);
 
-		let defenseProperty = Object.entries(this.defenseProperties).find(([_, {weight}]) => weight);
+		let defenseProperty = Object.entries(this.defenseProperties).find(([_, { weight }]) => weight);
 		if (defenseProperty) {
 			let newItems = items;
 			let lastMinDefensePropertyValue = 0;
 			do {
-				let newItemsMinValue = Math.min(...newItems.map(({evalValue}) => evalValue));
-				let maxValue = Math.max(...items.map(({evalValue}) => evalValue));
+				let newItemsMinValue = Math.min(...newItems.map(({ evalValue }) => evalValue));
+				let maxValue = Math.max(...items.map(({ evalValue }) => evalValue));
 				let minModValue = Math.min(...items.map(item => item.valueDetails.mods));
 				let minDefensePropertyValue = ((maxValue + newItemsMinValue) / 2 - minModValue) / defenseProperty[1].weight;
 
@@ -219,25 +211,24 @@ class QueryParams {
 
 	async queryAndParseItems(query, stream, progressCallback, itemEval) {
 		try {
-			const api = 'https://www.pathofexile.com/api/trade';
+			const api = "https://www.pathofexile.com/api/trade";
 			let endpoint = `${api}/search/${this.league}`;
 			// Without a non-empty user-agent header, PoE will return 403.
-			let headers = {'User-Agent': '_', Cookie: this.sessionId ? `POESESSID=${this.sessionId}` : ''};
-			progressCallback('Initial query.', 0);
+			let headers = { "User-Agent": "_", Cookie: this.sessionId ? `POESESSID=${this.sessionId}` : "" };
+			progressCallback("Initial query.", 0);
 			let response = await rlrPost(endpoint, query, headers, this.stopObj);
 			let data = JSON.parse(response.string);
 			progressCallback(`Received ${data.result.length} items.`, 0);
 
 			let requestGroups = [];
-			while (data.result.length)
-				requestGroups.push(data.result.splice(0, 10));
+			while (data.result.length) requestGroups.push(data.result.splice(0, 10));
 			progressCallback(`Will make ${requestGroups.length} grouped item queries.`, 1 / (requestGroups.length + 1));
 
 			let receivedCount = 0;
 			let promises = requestGroups.map(async (requestGroup, i) => {
 				let queryParams = {
 					query: data.id,
-					'pseudos[]': [ApiConstants.SHORT_PROPERTIES.totalEleRes, ApiConstants.SHORT_PROPERTIES.flatLife],
+					"pseudos[]": [ApiConstants.SHORT_PROPERTIES.totalEleRes, ApiConstants.SHORT_PROPERTIES.flatLife],
 				};
 				let endpoint2 = `${api}/fetch/${requestGroup.join()}`;
 				let response2 = await rlrGet(endpoint2, queryParams, headers, this.stopObj);
@@ -248,10 +239,10 @@ class QueryParams {
 				return items;
 			});
 			let items = (await Promise.all(promises)).flat();
-			progressCallback('All grouped item queries completed.', 1);
+			progressCallback("All grouped item queries completed.", 1);
 			return items;
 		} catch (e) {
-			console.warn('ERROR', e);
+			console.warn("ERROR", e);
 			return [];
 		}
 	}
@@ -263,15 +254,19 @@ class QueryParams {
 			return a;
 		}, []);
 		let extendedExplicitMods = itemData.item.extended.mods?.explicit || [];
-		let affixes = Object.fromEntries([['prefix', 'P'], ['suffix', 'S']].map(([prop, tier]) =>
-			[prop, extendedExplicitMods.filter(mod => mod.tier[0] === tier).length]));
-		let defenseProperties =
+		let affixes = Object.fromEntries(
 			[
-				['ar', 'armour'],
-				['ev', 'evasion'],
-				['es', 'energyShield'],
-			].map(([responseName, fullName]) => [fullName, itemData.item.extended[responseName] || 0])
-				.filter(([_, value]) => value);
+				["prefix", "P"],
+				["suffix", "S"],
+			].map(([prop, tier]) => [prop, extendedExplicitMods.filter(mod => mod.tier[0] === tier).length])
+		);
+		let defenseProperties = [
+			["ar", "armour"],
+			["ev", "evasion"],
+			["es", "energyShield"],
+		]
+			.map(([responseName, fullName]) => [fullName, itemData.item.extended[responseName] || 0])
+			.filter(([_, value]) => value);
 		let pseudoMods = itemData.item.pseudoMods || [];
 		let valueDetails = {
 			affixes: this.affixValueShift,
@@ -279,7 +274,7 @@ class QueryParams {
 			mods: QueryParams.evalValue(pseudoMods),
 		};
 		let text = ItemEval.decode64(itemData.item.extended.text);
-		let valueBuild = itemEval?.evalItem(text) || Promise.resolve('');
+		let valueBuild = itemEval?.evalItem(text) || Promise.resolve("");
 		let priceDetails = {
 			count: itemData.listing.price.amount,
 			currency: itemData.listing.price.currency,
@@ -295,7 +290,7 @@ class QueryParams {
 			influences: Object.keys(itemData.item.influences || {}),
 			sockets,
 			affixes,
-			defenseProperties: defenseProperties.map(nameValue => nameValue.join(' ')),
+			defenseProperties: defenseProperties.map(nameValue => nameValue.join(" ")),
 			enchantMods: itemData.item.enchantMods || [],
 			implicitMods: itemData.item.implicitMods || [],
 			explicitMods: itemData.item.explicitMods || [],
@@ -316,26 +311,22 @@ class QueryParams {
 	}
 
 	static evalDefensePropertiesValue(itemDefenseProperties, queryDefenseProperties) {
-		return itemDefenseProperties
-			.map(([name, value]) => value * queryDefenseProperties[name].weight)
-			.reduce((sum, v) => sum + v, 0);
+		return itemDefenseProperties.map(([name, value]) => value * queryDefenseProperties[name].weight).reduce((sum, v) => sum + v, 0);
 	}
 
 	static evalValue(pseudoMods) {
-		let pseudoSumI = pseudoMods.findIndex(mod => mod.startsWith('Sum: '));
-		if (pseudoSumI === -1)
-			return 0;
+		let pseudoSumI = pseudoMods.findIndex(mod => mod.startsWith("Sum: "));
+		if (pseudoSumI === -1) return 0;
 		let [pseudoSum] = pseudoMods.splice(pseudoSumI, 1);
 		return Number(pseudoSum.substring(5));
 	}
 
-	static async evalPrice(league, {currency: currencyId, count, shifts}) {
+	static async evalPrice(league, { currency: currencyId, count, shifts }) {
 		let currencyPrices = (await ApiConstants.constants.currencyPrices(league))[currencyId];
-		if (currencyPrices)
-			return currencyPrices * count + Object.values(shifts).reduce((sum, shift) => sum + shift, 0);
-		console.warn('Missing currency', currencyId);
+		if (currencyPrices) return currencyPrices * count + Object.values(shifts).reduce((sum, shift) => sum + shift, 0);
+		console.warn("Missing currency", currencyId);
 		return -1;
 	}
 }
 
-module.exports = {QueryParams};
+module.exports = { QueryParams };
